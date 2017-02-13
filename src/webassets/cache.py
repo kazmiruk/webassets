@@ -197,11 +197,21 @@ class FilesystemCache(BaseCache):
             warnings.warn('Ignoring corrupted cache file %s' % filename)
         return unpickled
 
+    def _touch(self, path):
+        """ This method could raise exception if os.open
+            can't obtain file handler
+        """
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.utime(path, None)
+
+        return fd
+
     def set(self, key, data):
         md5 = '%s' % make_md5(self.V, key)
         filename = path.join(self.directory, md5)
-        fd, temp_filename = tempfile.mkstemp(prefix='.' + md5,
-                dir=self.directory)
+        temp_filename = path.join(self.directory, os.urandom(16).encode('hex'))
+        fd = self._touch(temp_filename)
+
         try:
             with os.fdopen(fd, 'wb') as f:
                 pickle.dump(data, f)
